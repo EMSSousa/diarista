@@ -4,23 +4,25 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, CalendarDays, CreditCard,
-  Settings, BarChart3, ChevronRight, X,
+  Settings, BarChart3, ChevronRight, X, Clock, History, Building2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useSidebar } from './sidebar-provider'
 
 const navItems = [
   { label: 'Dashboard',    href: '/dashboard',    icon: LayoutDashboard },
   { label: 'Diaristas',    href: '/diaristas',    icon: Users },
   { label: 'Agendamentos', href: '/agendamentos', icon: CalendarDays },
+  { label: 'Marcar Ponto', href: '/pontos',       icon: Clock },
+  { label: 'Histórico',    href: '/historico',    icon: History },
   { label: 'Pagamentos',   href: '/pagamentos',   icon: CreditCard },
   { label: 'Relatórios',   href: '/relatorios',   icon: BarChart3 },
 ]
 
 const bottomItems = [
+  { label: 'Empresa',       href: '/empresa',       icon: Building2 },
   { label: 'Configurações', href: '/configuracoes', icon: Settings },
 ]
 
@@ -35,28 +37,23 @@ function NavItem({
   badge?: string | null; active: boolean; onClick?: () => void
 }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild={true}>
-        <Link
-          href={href}
-          onClick={onClick}
-          className={cn(
-            'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
-            active
-              ? 'bg-accent text-primary shadow-sm'
-              : 'text-muted-foreground hover:bg-accent/50 hover:text-primary'
-          )}
-        >
-          <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-primary' : 'text-muted-foreground group-hover:text-primary')} />
-          <span className="flex-1 truncate">{label}</span>
-          {badge && (
-            <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-xs font-semibold">{badge}</Badge>
-          )}
-          {active && <ChevronRight className="ml-auto h-3.5 w-3.5 text-primary/60" />}
-        </Link>
-      </TooltipTrigger>
-      <TooltipContent side="right" className="hidden">{label}</TooltipContent>
-    </Tooltip>
+    <Link
+      href={href}
+      onClick={onClick}
+      className={cn(
+        'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
+        active
+          ? 'bg-accent text-primary shadow-sm'
+          : 'text-muted-foreground hover:bg-accent/50 hover:text-primary'
+      )}
+    >
+      <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-primary' : 'text-muted-foreground group-hover:text-primary')} />
+      <span className="flex-1 truncate">{label}</span>
+      {badge && (
+        <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-xs font-semibold">{badge}</Badge>
+      )}
+      {active && <ChevronRight className="ml-auto h-3.5 w-3.5 text-primary/60" />}
+    </Link>
   )
 }
 
@@ -127,7 +124,11 @@ function SidebarContent({
 
       {/* Footer */}
       <div className="border-t border-border px-3 py-3">
-        <div className="flex items-center gap-3 rounded-lg px-3 py-2">
+        <Link
+          href="/empresa"
+          onClick={onClose}
+          className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-accent/50 transition-colors"
+        >
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
             {companyName?.[0]?.toUpperCase() ?? 'D'}
           </div>
@@ -136,7 +137,7 @@ function SidebarContent({
             <p className="truncate text-[11px] text-muted-foreground">{planLabel[plan ?? ''] ?? 'Online'}</p>
           </div>
           <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-        </div>
+        </Link>
       </div>
     </div>
   )

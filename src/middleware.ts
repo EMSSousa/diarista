@@ -24,15 +24,26 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
+  // ── Admin routes ────────────────────────────────────────────
+  if (pathname.startsWith('/admin')) {
+    // /admin/login: acessível sem autenticação
+    if (!pathname.startsWith('/admin/login') && !user) {
+      return NextResponse.redirect(new URL('/admin/login', request.url))
+    }
+    return supabaseResponse
+  }
+
+  // ── App routes ───────────────────────────────────────────────
   const isAuthPage = pathname.startsWith('/login')
 
   // Redireciona usuário logado que tenta acessar login
+  // (admins são barrados no AppLayout — aqui apenas redireciona para /dashboard)
   if (user && isAuthPage) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   // Redireciona usuário não logado que tenta acessar rotas protegidas
-  const protectedPrefixes = ['/dashboard', '/diaristas', '/agendamentos', '/pagamentos', '/relatorios', '/configuracoes']
+  const protectedPrefixes = ['/dashboard', '/diaristas', '/agendamentos', '/pagamentos', '/relatorios', '/configuracoes', '/pontos', '/historico', '/perfil', '/empresa', '/aguardando']
   const isProtected = protectedPrefixes.some(p => pathname.startsWith(p))
 
   if (!user && isProtected) {

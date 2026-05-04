@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 
 export type AuthState = { error: string } | null
@@ -19,9 +20,18 @@ export async function loginAction(
   if (!email || !password) return { error: 'Preencha e-mail e senha.' }
 
   const supabase = await createClient()
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const { data: { user }, error } = await supabase.auth.signInWithPassword({ email, password })
 
-  if (error) return { error: 'E-mail ou senha incorretos.' }
+  if (error || !user) return { error: 'E-mail ou senha incorretos.' }
+
+  // Redireciona admins do SaaS para o painel administrativo
+  const { data: admin } = await supabase
+    .from('admins')
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (admin) redirect('/admin/dashboard')
 
   redirect('/dashboard')
 }
@@ -48,24 +58,29 @@ export async function signupAction(
   if (!['basic', 'pro', 'enterprise'].includes(plano))
     return { error: 'Plano inválido selecionado.' }
 
-  const supabase = await createClient()
+  const adminClient = createAdminClient()
 
-  // 1. Criar usuário no Supabase Auth
-  const { data, error: authError } = await supabase.auth.signUp({ email, password: senha })
+  // 1. Criar usuário via admin API — confirma imediatamente sem enviar e-mail
+  //    (aprovação é feita pelo admin do SaaS, não por e-mail)
+  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+    email,
+    password: senha,
+    email_confirm: true,
+  })
 
   if (authError) {
     const msg = authError.message.toLowerCase()
-    if (msg.includes('already registered') || msg.includes('already been registered'))
+    if (msg.includes('already registered') || msg.includes('already been registered') || msg.includes('already exists'))
       return { error: 'Este e-mail já está cadastrado.' }
     if (msg.includes('invalid email'))
       return { error: 'E-mail inválido.' }
     return { error: 'Erro ao criar conta. Tente novamente.' }
   }
 
-  if (!data.user) return { error: 'Confirme seu e-mail para ativar a conta.' }
+  if (!authData.user) return { error: 'Erro ao criar conta. Tente novamente.' }
 
-  // 2. Criar empresa
-  const { data: empresa, error: empresaError } = await supabase
+  // 2. Criar empresa e usuário (admin client bypassa RLS)
+  const { data: empresa, error: empresaError } = await adminClient
     .from('empresas')
     .insert({ nome, plano, limite_diaristas: LIMITES[plano] })
     .select()
@@ -74,15 +89,18 @@ export async function signupAction(
   if (empresaError || !empresa)
     return { error: 'Erro ao criar empresa. Tente novamente.' }
 
-  // 3. Criar registro de usuário
-  const { error: usuarioError } = await supabase
+  const { error: usuarioError } = await adminClient
     .from('usuarios')
-    .insert({ id: data.user.id, empresa_id: empresa.id, email, role: 'admin' })
+    .insert({ id: authData.user.id, empresa_id: empresa.id, email, role: 'admin' })
 
   if (usuarioError)
     return { error: 'Erro ao finalizar cadastro. Tente novamente.' }
 
-  redirect('/dashboard')
+  // 3. Fazer login para criar sessão (admin createUser não cria sessão)
+  const supabase = await createClient()
+  await supabase.auth.signInWithPassword({ email, password: senha })
+
+  redirect('/aguardando')
 }
 
 export async function logoutAction() {

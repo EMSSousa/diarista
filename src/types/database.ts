@@ -1,14 +1,35 @@
-export type Plano = 'basic' | 'pro' | 'enterprise'
-export type Role = 'admin' | 'diarista'
+export type Plano           = 'basic' | 'pro' | 'enterprise'
+export type Role            = 'admin' | 'diarista'
 export type StatusAgendamento = 'agendado' | 'trabalhando' | 'concluido' | 'cancelado'
 export type StatusPagamento = 'pendente' | 'pago'
+export type StatusEmpresa   = 'pendente' | 'ativa' | 'inativa'
+export type TipoCobranca    = 'automatica' | 'manual'
+export type TipoPagamento   = 'diaria' | 'hora'
+export type TipoLog         = 'login' | 'criacao_diarista' | 'agendamento' | 'pagamento' | 'faturamento'
+
+export interface PlanoInfo {
+  id: string
+  nome: string
+  limite_diaristas: number
+  preco_mensal: number
+  ativo: boolean
+  criado_em: string
+}
 
 export interface Empresa {
   id: string
   nome: string
+  email_contato: string | null
+  telefone: string | null
+  endereco: string | null
   plano: Plano
   limite_diaristas: number
-  ativo: boolean
+  status: StatusEmpresa
+  tipo_cobranca: TipoCobranca
+  data_aprovacao: string | null
+  data_ativacao: string | null
+  valor_dia_padrao: number
+  valor_hora_padrao: number
   criado_em: string
 }
 
@@ -21,6 +42,17 @@ export interface Usuario {
   empresas?: Empresa
 }
 
+export interface Admin {
+  id: string
+  email: string
+  role: 'super_admin'
+  ativo: boolean
+  criado_em: string
+}
+
+export type TipoConta = 'corrente' | 'poupanca'
+export type PixTipo   = 'cpf' | 'email' | 'telefone' | 'aleatoria'
+
 export interface Diarista {
   id: string
   empresa_id: string
@@ -28,7 +60,13 @@ export interface Diarista {
   cpf: string
   especialidade: string | null
   valor_dia: number
+  valor_hora: number | null
   banco: string | null
+  agencia: string | null
+  conta: string | null
+  tipo_conta: TipoConta | null
+  pix_tipo: PixTipo | null
+  pix_chave: string | null
   ativo: boolean
   criado_em: string
 }
@@ -39,6 +77,7 @@ export interface Agendamento {
   diarista_id: string
   data: string
   local: string
+  tipo_pagamento: TipoPagamento
   valor: number
   status: StatusAgendamento
   criado_em: string
@@ -59,5 +98,27 @@ export interface Pagamento {
   mes: string
   total: number
   status: StatusPagamento
+  criado_em: string
+}
+
+export interface Fatura {
+  id: string
+  empresa_id: string
+  mes: string
+  valor: number
+  status: StatusPagamento
+  tipo_cobranca: TipoCobranca
+  data_vencimento: string
+  data_pagamento: string | null
+  criado_em: string
+}
+
+export interface Log {
+  id: string
+  empresa_id: string
+  usuario_id: string | null
+  tipo: TipoLog
+  descricao: string | null
+  status: 'sucesso' | 'erro'
   criado_em: string
 }

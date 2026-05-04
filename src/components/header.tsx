@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { logoutAction } from '@/app/(auth)/login/actions'
 import { LogOut, Menu } from 'lucide-react'
 import type { Empresa } from '@/types/database'
@@ -64,13 +65,13 @@ export function Header({ empresa, totalDiaristas, userEmail }: HeaderProps) {
 
         <div className="hidden md:block h-4 w-px bg-border" />
 
-        {/* Avatar + email */}
-        <div className="flex items-center gap-2">
+        {/* Avatar + email → perfil */}
+        <Link href="/perfil" className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-accent transition-colors">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
             {userEmail?.[0]?.toUpperCase() ?? 'U'}
           </div>
           <span className="hidden text-xs text-muted-foreground lg:block">{userEmail}</span>
-        </div>
+        </Link>
 
         {/* Logout */}
         <form action={logoutAction}>
