@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -26,7 +26,6 @@ export async function middleware(request: NextRequest) {
 
   // ── Admin routes ────────────────────────────────────────────
   if (pathname.startsWith('/admin')) {
-    // /admin/login: acessível sem autenticação
     if (!pathname.startsWith('/admin/login') && !user) {
       return NextResponse.redirect(new URL('/admin/login', request.url))
     }
@@ -36,13 +35,10 @@ export async function middleware(request: NextRequest) {
   // ── App routes ───────────────────────────────────────────────
   const isAuthPage = pathname.startsWith('/login')
 
-  // Redireciona usuário logado que tenta acessar login
-  // (admins são barrados no AppLayout — aqui apenas redireciona para /dashboard)
   if (user && isAuthPage) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  // Redireciona usuário não logado que tenta acessar rotas protegidas
   const protectedPrefixes = ['/dashboard', '/diaristas', '/agendamentos', '/pagamentos', '/relatorios', '/configuracoes', '/pontos', '/historico', '/perfil', '/empresa', '/aguardando']
   const isProtected = protectedPrefixes.some(p => pathname.startsWith(p))
 

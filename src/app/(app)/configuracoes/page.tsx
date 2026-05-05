@@ -1,23 +1,28 @@
-import { Settings } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { ConfiguracoesClient } from './configuracoes-client'
+import type { Empresa } from '@/types/database'
 
-export default function ConfiguracoesPage() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
-        <p className="text-sm text-muted-foreground mt-1">Gerencie as preferências do sistema.</p>
-      </div>
-      <div className="rounded-xl border border-border bg-card p-12 flex flex-col items-center justify-center gap-4 text-center shadow-sm">
-        <div className="rounded-full bg-accent p-4">
-          <Settings className="h-8 w-8 text-primary" />
-        </div>
-        <div>
-          <p className="font-semibold text-foreground">Configurações em construção</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            As opções de configuração estarão disponíveis em breve.
-          </p>
-        </div>
-      </div>
-    </div>
-  )
+export default async function ConfiguracoesPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: usuario } = await supabase
+    .from('usuarios')
+    .select('empresa_id')
+    .eq('id', user.id)
+    .single()
+
+  let empresa: Empresa | null = null
+  if (usuario?.empresa_id) {
+    const { data } = await supabase
+      .from('empresas')
+      .select('*')
+      .eq('id', usuario.empresa_id)
+      .single()
+    empresa = data as Empresa ?? null
+  }
+
+  return <ConfiguracoesClient initialEmpresa={empresa} />
 }

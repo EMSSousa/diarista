@@ -3,13 +3,13 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   Building2, CheckCircle, XCircle, Pencil, Trash2,
-  Eye, Loader2, X, AlertTriangle, PackageOpen, Filter,
-  Calendar, Mail, CreditCard, ShieldCheck, ChevronDown,
+  Eye, EyeOff, Loader2, X, AlertTriangle, PackageOpen, Filter,
+  Calendar, Mail, CreditCard, ShieldCheck, ChevronDown, Plus,
 } from 'lucide-react'
 import {
   aprovarEmpresaAction, ativarEmpresaAction, desativarEmpresaAction,
-  updateEmpresaAdminAction, deleteEmpresaAdminAction,
-  type EmpresaComAdmin, type EmpresaAdminEditInput,
+  updateEmpresaAdminAction, deleteEmpresaAdminAction, criarEmpresaAdminAction,
+  type EmpresaComAdmin, type EmpresaAdminEditInput, type CriarEmpresaAdminInput,
 } from './actions'
 import type { Plano, StatusEmpresa, TipoCobranca } from '@/types/database'
 
@@ -271,6 +271,167 @@ function EditModal({
   )
 }
 
+// ── Modal criar empresa ────────────────────────────────────────────────────
+
+function CreateModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void
+  onCreated: (empresa: EmpresaComAdmin) => void
+}) {
+  const [nome,         setNome]         = useState('')
+  const [email,        setEmail]        = useState('')
+  const [senha,        setSenha]        = useState('')
+  const [showSenha,    setShowSenha]    = useState(false)
+  const [plano,        setPlano]        = useState<Plano>('basic')
+  const [tipoCobranca, setTipoCobranca] = useState<TipoCobranca>('manual')
+  const [errors,       setErrors]       = useState<Record<string, string>>({})
+  const [saving,       setSaving]       = useState(false)
+
+  const validate = () => {
+    const e: Record<string, string> = {}
+    if (!nome.trim())  e.nome  = 'Nome é obrigatório'
+    if (!email.trim()) e.email = 'E-mail é obrigatório'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'E-mail inválido'
+    if (!senha)        e.senha = 'Senha é obrigatória'
+    else if (senha.length < 6) e.senha = 'Mínimo 6 caracteres'
+    return e
+  }
+
+  const handleSubmit = async (ev: React.FormEvent) => {
+    ev.preventDefault()
+    const e = validate()
+    if (Object.keys(e).length) { setErrors(e); return }
+    setSaving(true)
+    const input: CriarEmpresaAdminInput = { nome, email, senha, plano, tipo_cobranca: tipoCobranca }
+    const { empresa, error } = await criarEmpresaAdminAction(input)
+    setSaving(false)
+    if (error) { setErrors({ form: error }); return }
+    onCreated(empresa!)
+  }
+
+  const fieldClass = (key: string) =>
+    `w-full rounded-md border px-3 py-2.5 text-sm bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/40 h-11 ${errors[key] ? 'border-red-400' : 'border-gray-200'}`
+  const selectClass = 'w-full rounded-md border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/40 h-11 appearance-none'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-gray-100 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 sticky top-0 bg-white z-10">
+          <h2 className="text-base font-bold text-gray-900">Nova empresa</h2>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {errors.form && (
+            <div className="rounded-lg bg-red-50 px-4 py-2.5 text-xs text-red-600">{errors.form}</div>
+          )}
+
+          {/* Nome */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Nome da empresa <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={nome}
+              onChange={e => { setNome(e.target.value); setErrors(p => ({ ...p, nome: '' })) }}
+              placeholder="Ex: Construtora Silva"
+              className={fieldClass('nome')}
+            />
+            {errors.nome && <p className="mt-1 text-xs text-red-500">{errors.nome}</p>}
+          </div>
+
+          {/* E-mail admin */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              E-mail do admin <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setErrors(p => ({ ...p, email: '' })) }}
+              placeholder="admin@empresa.com"
+              className={fieldClass('email')}
+            />
+            {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+          </div>
+
+          {/* Senha */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Senha inicial <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type={showSenha ? 'text' : 'password'}
+                value={senha}
+                onChange={e => { setSenha(e.target.value); setErrors(p => ({ ...p, senha: '' })) }}
+                placeholder="Mín. 6 caracteres"
+                className={fieldClass('senha')}
+              />
+              <button
+                type="button"
+                onClick={() => setShowSenha(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            {errors.senha && <p className="mt-1 text-xs text-red-500">{errors.senha}</p>}
+          </div>
+
+          {/* Plano */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Plano</label>
+            <div className="relative">
+              <select value={plano} onChange={e => setPlano(e.target.value as Plano)} className={selectClass}>
+                <option value="basic">Basic (10 diaristas)</option>
+                <option value="pro">Pro (50 diaristas)</option>
+                <option value="enterprise">Enterprise (ilimitado)</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
+          </div>
+
+          {/* Tipo cobrança */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">Tipo de cobrança</label>
+            <div className="flex gap-3">
+              {(['manual', 'automatica'] as TipoCobranca[]).map(tipo => (
+                <label
+                  key={tipo}
+                  className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border p-3 text-sm font-medium transition-colors ${
+                    tipoCobranca === tipo
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <input type="radio" className="sr-only" checked={tipoCobranca === tipo} onChange={() => setTipoCobranca(tipo)} />
+                  {COBRANCA_LABEL[tipo]}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 h-11 rounded-lg border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving} className="flex-1 h-11 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 flex items-center justify-center gap-2 transition-colors">
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              Criar empresa
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ── Modal confirmar exclusão ───────────────────────────────────────────────
 
 function DeleteModal({
@@ -323,6 +484,7 @@ function DeleteModal({
 // ── Ação inline com loading ────────────────────────────────────────────────
 
 type ActionModal =
+  | { type: 'create' }
   | { type: 'details'; empresa: EmpresaComAdmin }
   | { type: 'edit';    empresa: EmpresaComAdmin }
   | { type: 'delete';  empresa: EmpresaComAdmin }
@@ -402,6 +564,12 @@ export function EmpresasClient({ initialEmpresas }: Props) {
     setToast({ message: 'Empresa deletada com sucesso', type: 'success' })
   }, [])
 
+  const handleCreated = useCallback((empresa: EmpresaComAdmin) => {
+    setEmpresas(prev => [empresa, ...prev])
+    setModal(null)
+    setToast({ message: `Empresa "${empresa.nome}" criada com sucesso`, type: 'success' })
+  }, [])
+
   const ActionButton = ({ empresa }: { empresa: EmpresaComAdmin }) => {
     const loading = loadingId === empresa.id
     return (
@@ -474,11 +642,20 @@ export function EmpresasClient({ initialEmpresas }: Props) {
     <>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Empresas</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {empresas.length} empresa{empresas.length !== 1 ? 's' : ''} cadastrada{empresas.length !== 1 ? 's' : ''}
-          </p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Empresas</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              {empresas.length} empresa{empresas.length !== 1 ? 's' : ''} cadastrada{empresas.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <button
+            onClick={() => setModal({ type: 'create' })}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors shrink-0"
+          >
+            <Plus className="h-4 w-4" />
+            Nova Empresa
+          </button>
         </div>
 
         {/* Filtros */}
@@ -610,6 +787,12 @@ export function EmpresasClient({ initialEmpresas }: Props) {
       </div>
 
       {/* Modais */}
+      {modal?.type === 'create' && (
+        <CreateModal
+          onClose={() => setModal(null)}
+          onCreated={handleCreated}
+        />
+      )}
       {modal?.type === 'details' && (
         <DetailsModal
           empresa={modal.empresa}
