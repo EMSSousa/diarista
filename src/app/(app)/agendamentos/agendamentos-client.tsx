@@ -51,7 +51,7 @@ function validate(form: FormValues, editMode: boolean): FieldErrors {
   if (!form.local.trim())
     errs.local = 'Local é obrigatório.'
 
-  if (form.tipo_pagamento === 'diaria' && (parseFloat(form.valor) || 0) <= 0)
+  if (form.tipo_pagamento !== 'hora' && (parseFloat(form.valor) || 0) <= 0)
     errs.valor = 'O valor deve ser maior que zero.'
 
   return errs
@@ -67,8 +67,9 @@ const STATUS_CFG: Record<StatusAgendamento, { label: string; dot: string; badge:
 }
 
 const TIPO_CFG: Record<TipoPagamento, { label: string; badge: string }> = {
-  diaria: { label: 'Diária',   badge: 'bg-violet-50 text-violet-600' },
-  hora:   { label: 'Por hora', badge: 'bg-sky-50 text-sky-600' },
+  diaria:   { label: 'Diária',   badge: 'bg-violet-50 text-violet-600' },
+  hora:     { label: 'Por hora', badge: 'bg-sky-50 text-sky-600' },
+  empreita: { label: 'Empreita', badge: 'bg-amber-50 text-amber-600' },
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -211,9 +212,12 @@ function AgendamentoForm({ diaristas, initial, editMode, onSubmit, onCancel, sub
   }
 
   function onTipoChange(tipo: TipoPagamento) {
-    const d     = diaristas.find(x => x.id === form.diarista_id)
-    const valor = d ? (tipo === 'diaria' ? String(d.valor_dia) : String(d.valor_hora ?? 0)) : form.valor
-    const next  = { ...form, tipo_pagamento: tipo, valor }
+    const d = diaristas.find(x => x.id === form.diarista_id)
+    let valor = form.valor
+    if (tipo === 'diaria')     valor = d ? String(d.valor_dia)        : form.valor
+    else if (tipo === 'hora')  valor = d ? String(d.valor_hora ?? 0)  : form.valor
+    else                       valor = ''
+    const next = { ...form, tipo_pagamento: tipo, valor }
     setForm(next)
     if (touched) setErrs(validate(next, editMode))
   }
@@ -259,7 +263,7 @@ function AgendamentoForm({ diaristas, initial, editMode, onSubmit, onCancel, sub
       {/* Tipo de pagamento */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium text-foreground">Tipo de pagamento</label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
             disabled={!canAct}
@@ -294,6 +298,21 @@ function AgendamentoForm({ diaristas, initial, editMode, onSubmit, onCancel, sub
               {selD?.valor_hora ? fmtBRL(selD.valor_hora) + '/h' : !canHora ? 'Sem valor/hora' : 'Calculado por hora'}
             </p>
           </button>
+          <button
+            type="button"
+            disabled={!canAct}
+            onClick={() => onTipoChange('empreita')}
+            className={cn(
+              'rounded-xl border-2 p-3 text-left transition-all',
+              form.tipo_pagamento === 'empreita'
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:bg-accent',
+              !canAct && 'opacity-40 cursor-not-allowed',
+            )}
+          >
+            <p className="text-sm font-semibold text-foreground">🔨 Empreita</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Valor combinado</p>
+          </button>
         </div>
       </div>
 
@@ -314,7 +333,7 @@ function AgendamentoForm({ diaristas, initial, editMode, onSubmit, onCancel, sub
         </div>
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-foreground">
-            {form.tipo_pagamento === 'hora' ? 'Valor/hora (R$)' : 'Valor (R$)'}
+            {form.tipo_pagamento === 'hora' ? 'Valor/hora (R$)' : form.tipo_pagamento === 'empreita' ? 'Valor combinado (R$)' : 'Valor (R$)'}
           </label>
           <input
             type="number"

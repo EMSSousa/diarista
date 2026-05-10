@@ -10,8 +10,10 @@ export type DiaristaPagamento = {
   valor_hora: number | null
   dias_diaria: number
   horas_hora: number
+  qtd_empreitas: number
   total_diarias: number
   total_horas: number
+  total_empreitas: number
   total_geral: number
 }
 
@@ -75,8 +77,10 @@ export async function getRelatorioPagamento(mes: string): Promise<{
         valor_hora: d.valor_hora != null ? Number(d.valor_hora) : null,
         dias_diaria: 0,
         horas_hora: 0,
+        qtd_empreitas: 0,
         total_diarias: 0,
         total_horas: 0,
+        total_empreitas: 0,
         total_geral: 0,
       })
     }
@@ -86,6 +90,9 @@ export async function getRelatorioPagamento(mes: string): Promise<{
     if (ag.tipo_pagamento === 'diaria') {
       entry.dias_diaria += 1
       entry.total_diarias += Number(ag.valor)
+    } else if (ag.tipo_pagamento === 'empreita') {
+      entry.qtd_empreitas   += 1
+      entry.total_empreitas += Number(ag.valor)
     } else {
       const pontos: any[] = Array.isArray(ag.pontos) ? ag.pontos : ag.pontos ? [ag.pontos] : []
       for (const p of pontos) {
@@ -99,7 +106,7 @@ export async function getRelatorioPagamento(mes: string): Promise<{
 
   for (const e of map.values()) {
     e.horas_hora = Math.round(e.horas_hora * 100) / 100
-    e.total_geral = Math.round((e.total_diarias + e.total_horas) * 100) / 100
+    e.total_geral = Math.round((e.total_diarias + e.total_horas + e.total_empreitas) * 100) / 100
   }
 
   const diaristas = Array.from(map.values()).sort((a, b) => a.nome.localeCompare(b.nome))
@@ -116,6 +123,70 @@ export async function getRelatorioPagamento(mes: string): Promise<{
     },
     error: null,
   }
+}
+
+export type MesPagamento = {
+  mes: string
+  total: number
+  status: 'pago' | 'pendente'
+  pagamento_id: string | null
+  qtd_diaristas: number
+}
+
+export async function getHistoricoPagamentos(
+  inicio: string,
+  fim: string,
+): Promise<{ meses: MesPagamento[]; error: string | null }> {
+  const supabase = await createClient()
+
+  const [agRes, pagRes] = await Promise.all([
+    supabase
+      .from('agendamentos')
+      .select('data, valor, diarista_id')
+      .eq('status', 'concluido')
+      .gte('data', inicio + '-01')
+      .lte('data', fim + '-31'),
+    supabase
+      .from('pagamentos')
+      .select('id, mes, total, status')
+      .gte('mes', inicio + '-01')
+      .lte('mes', fim + '-31')
+      .order('mes', { ascending: false }),
+  ])
+
+  if (agRes.error) return { meses: [], error: agRes.error.message }
+
+  // Aggregate agendamentos by month
+  const byMes = new Map<string, { total: number; diaristas: Set<string> }>()
+  for (const ag of agRes.data ?? []) {
+    const m = ag.data.substring(0, 7) // YYYY-MM
+    const cur = byMes.get(m) ?? { total: 0, diaristas: new Set() }
+    cur.total += Number(ag.valor)
+    cur.diaristas.add(ag.diarista_id)
+    byMes.set(m, cur)
+  }
+
+  // Map pagamentos by mes key
+  const pagMap = new Map<string, { id: string; status: 'pago' | 'pendente' }>()
+  for (const p of pagRes.data ?? []) {
+    const m = p.mes.substring(0, 7)
+    pagMap.set(m, { id: p.id, status: p.status as 'pago' | 'pendente' })
+  }
+
+  const meses: MesPagamento[] = [...byMes.entries()]
+    .map(([mes, { total, diaristas }]) => {
+      const pag = pagMap.get(mes)
+      return {
+        mes,
+        total: Math.round(total * 100) / 100,
+        status: pag?.status ?? 'pendente',
+        pagamento_id: pag?.id ?? null,
+        qtd_diaristas: diaristas.size,
+      }
+    })
+    .sort((a, b) => b.mes.localeCompare(a.mes))
+
+  return { meses, error: null }
 }
 
 export async function marcarComoPagoAction(

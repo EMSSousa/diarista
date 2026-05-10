@@ -7,5 +7,13 @@ export default async function PagamentosPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  return <PagamentosClient />
+  const { data: usuario } = await supabase
+    .from('usuarios')
+    .select('empresas(nome)')
+    .eq('id', user.id)
+    .single()
+
+  const empresaNome = (usuario?.empresas as { nome?: string } | null)?.nome ?? 'Empresa'
+
+  return <PagamentosClient empresaNome={empresaNome} />
 }

@@ -4,13 +4,15 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Plus, Pencil, Trash2, ToggleLeft, ToggleRight,
   PackageOpen, Loader2, X, AlertTriangle,
+  LayoutDashboard, Users, CalendarDays, Clock, History,
+  CreditCard, BarChart3, Building2, Settings,
 } from 'lucide-react'
 import {
   createPlanoAction, updatePlanoAction,
-  togglePlanoAtivoAction, deletePlanoAction,
+  togglePlanoAtivoAction, deletePlanoAction, saveModulosAction,
   type PlanoInput,
 } from './actions'
-import type { PlanoInfo } from '@/types/database'
+import type { Permissao, Permissoes, PlanoInfo, PlanoModulosMap, PlanoTier } from '@/types/database'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -67,6 +69,104 @@ export function PlanosSkeleton() {
         ))}
       </div>
     </div>
+  )
+}
+
+// ── Módulos por Plano ─────────────────────────────────────────────────────
+
+const MODULOS_CFG: { key: Permissao; label: string; icon: React.ElementType }[] = [
+  { key: 'dashboard',    label: 'Dashboard',     icon: LayoutDashboard },
+  { key: 'diaristas',   label: 'Diaristas',     icon: Users },
+  { key: 'agendamentos',label: 'Agendamentos',  icon: CalendarDays },
+  { key: 'pontos',      label: 'Marcar Ponto',  icon: Clock },
+  { key: 'historico',   label: 'Histórico',     icon: History },
+  { key: 'pagamentos',  label: 'Pagamentos',    icon: CreditCard },
+  { key: 'relatorios',  label: 'Relatórios',    icon: BarChart3 },
+  { key: 'empresa',     label: 'Empresa',       icon: Building2 },
+  { key: 'configuracoes',label: 'Configurações',icon: Settings },
+]
+
+const PLANO_LABEL: Record<PlanoTier, { label: string; color: string; desc: string }> = {
+  basic:      { label: 'Basic',      color: 'text-gray-700 bg-gray-100',     desc: 'Acesso básico' },
+  pro:        { label: 'Pro',        color: 'text-blue-700 bg-blue-50',      desc: 'Acesso avançado' },
+  enterprise: { label: 'Enterprise', color: 'text-violet-700 bg-violet-50',  desc: 'Acesso completo' },
+}
+
+function PlanoModulosCard({
+  tier, modulos, onSaved,
+}: {
+  tier: PlanoTier
+  modulos: Permissoes
+  onSaved: (tier: PlanoTier, modulos: Permissoes) => void
+}) {
+  const [current, setCurrent] = useState<Permissoes>(modulos)
+  const [saving, setSaving]   = useState(false)
+  const [toast, setToast]     = useState<ToastState>(null)
+  const cfg = PLANO_LABEL[tier]
+
+  useEffect(() => { setCurrent(modulos) }, [modulos])
+
+  const toggle = (key: Permissao) =>
+    setCurrent(p => ({ ...p, [key]: !p[key] }))
+
+  const handleSave = async () => {
+    setSaving(true)
+    const { error } = await saveModulosAction(tier, current)
+    setSaving(false)
+    if (error) { setToast({ message: 'Erro: ' + error, type: 'error' }); return }
+    setToast({ message: 'Módulos salvos!', type: 'success' })
+    onSaved(tier, current)
+  }
+
+  const enabledCount = Object.values(current).filter(Boolean).length
+
+  return (
+    <>
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="border-b border-gray-100 bg-gray-50 px-5 py-4 flex items-center justify-between">
+          <div>
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${cfg.color}`}>
+              {cfg.label}
+            </span>
+            <p className="text-xs text-gray-500 mt-1">{enabledCount} de {MODULOS_CFG.length} módulos ativos</p>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
+          >
+            {saving && <Loader2 className="h-3 w-3 animate-spin" />}
+            Salvar
+          </button>
+        </div>
+        <div className="divide-y divide-gray-50">
+          {MODULOS_CFG.map(({ key, label, icon: Icon }) => (
+            <div
+              key={key}
+              className="flex items-center justify-between px-5 py-3 hover:bg-gray-50/60 transition-colors cursor-pointer"
+              onClick={() => toggle(key)}
+            >
+              <div className="flex items-center gap-2.5">
+                <Icon className={`h-4 w-4 ${current[key] ? 'text-blue-600' : 'text-gray-300'}`} />
+                <span className={`text-sm ${current[key] ? 'text-gray-800 font-medium' : 'text-gray-400'}`}>
+                  {label}
+                </span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={current[key]}
+                onClick={e => { e.stopPropagation(); toggle(key) }}
+                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none ${current[key] ? 'bg-blue-600' : 'bg-gray-200'}`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform ${current[key] ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+      <Toast toast={toast} onClose={() => setToast(null)} />
+    </>
   )
 }
 
@@ -306,10 +406,11 @@ function DeleteModal({
 
 // ── Componente principal ───────────────────────────────────────────────────
 
-interface Props { initialPlanos: PlanoInfo[] }
+interface Props { initialPlanos: PlanoInfo[]; initialModulos: PlanoModulosMap }
 
-export function PlanosClient({ initialPlanos }: Props) {
+export function PlanosClient({ initialPlanos, initialModulos }: Props) {
   const [planos,      setPlanos]      = useState<PlanoInfo[]>(initialPlanos)
+  const [modulos,     setModulos]     = useState<PlanoModulosMap>(initialModulos)
   const [modal,       setModal]       = useState<ModalMode | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<PlanoInfo | null>(null)
   const [toast,       setToast]       = useState<ToastState>(null)
@@ -492,6 +593,26 @@ export function PlanosClient({ initialPlanos }: Props) {
           </>
         )}
       </div>
+
+        {/* ── Módulos por Plano ── */}
+        <div className="mt-10 space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Módulos por plano</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Configure quais páginas e funcionalidades cada plano oferece aos usuários.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {(['basic', 'pro', 'enterprise'] as PlanoTier[]).map(tier => (
+              <PlanoModulosCard
+                key={tier}
+                tier={tier}
+                modulos={modulos[tier]}
+                onSaved={(t, m) => setModulos(prev => ({ ...prev, [t]: m }))}
+              />
+            ))}
+          </div>
+        </div>
 
       {/* Modais */}
       {modal && (

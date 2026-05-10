@@ -55,6 +55,11 @@ CREATE TABLE usuarios (
   email      TEXT        NOT NULL,
   role       TEXT        NOT NULL DEFAULT 'admin'
                          CHECK (role IN ('admin', 'diarista')),
+  permissoes JSONB       NOT NULL DEFAULT '{
+    "dashboard": true, "diaristas": false, "agendamentos": true,
+    "pontos": true, "historico": true, "pagamentos": false,
+    "relatorios": false, "empresa": false, "configuracoes": false
+  }'::jsonb,
   criado_em  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -101,7 +106,7 @@ CREATE TABLE agendamentos (
   data           DATE          NOT NULL,
   local          TEXT          NOT NULL,
   tipo_pagamento TEXT          NOT NULL DEFAULT 'diaria'
-                               CHECK (tipo_pagamento IN ('diaria', 'hora')),
+                               CHECK (tipo_pagamento IN ('diaria', 'hora', 'empreita')),
   valor          NUMERIC(10,2) NOT NULL DEFAULT 0,
   status         TEXT          NOT NULL DEFAULT 'agendado'
                                CHECK (status IN ('agendado', 'trabalhando', 'concluido', 'cancelado')),
@@ -281,3 +286,40 @@ CREATE POLICY "faturas_admin_update" ON faturas
 -- pagamentos: admin pode ver todos (para stats)
 CREATE POLICY "pagamentos_admin_select" ON pagamentos
   FOR SELECT USING (auth_is_admin());
+
+-- ============================================================
+-- 11. plano_modulos
+-- ============================================================
+CREATE TABLE IF NOT EXISTS plano_modulos (
+  plano     TEXT        PRIMARY KEY CHECK (plano IN ('basic', 'pro', 'enterprise')),
+  modulos   JSONB       NOT NULL,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE plano_modulos ENABLE ROW LEVEL SECURITY;
+
+-- qualquer usuário autenticado pode ler (necessário para layout.tsx)
+CREATE POLICY "plano_modulos_select" ON plano_modulos
+  FOR SELECT USING (true);
+-- apenas super admins do SaaS podem escrever
+CREATE POLICY "plano_modulos_admin" ON plano_modulos
+  FOR ALL USING (auth_is_admin());
+
+-- dados iniciais dos módulos por plano
+INSERT INTO plano_modulos (plano, modulos) VALUES
+  ('basic', '{
+    "dashboard":true,"diaristas":false,"agendamentos":true,
+    "pontos":true,"historico":true,"pagamentos":false,
+    "relatorios":false,"empresa":false,"configuracoes":false
+  }'),
+  ('pro', '{
+    "dashboard":true,"diaristas":true,"agendamentos":true,
+    "pontos":true,"historico":true,"pagamentos":true,
+    "relatorios":true,"empresa":false,"configuracoes":false
+  }'),
+  ('enterprise', '{
+    "dashboard":true,"diaristas":true,"agendamentos":true,
+    "pontos":true,"historico":true,"pagamentos":true,
+    "relatorios":true,"empresa":true,"configuracoes":true
+  }')
+ON CONFLICT (plano) DO NOTHING;

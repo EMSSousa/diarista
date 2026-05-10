@@ -10,21 +10,22 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useSidebar } from './sidebar-provider'
+import type { Permissoes, Role } from '@/types/database'
 
 const navItems = [
-  { label: 'Dashboard',    href: '/dashboard',    icon: LayoutDashboard },
-  { label: 'Diaristas',    href: '/diaristas',    icon: Users },
-  { label: 'Agendamentos', href: '/agendamentos', icon: CalendarDays },
-  { label: 'Marcar Ponto', href: '/pontos',       icon: Clock },
-  { label: 'Histórico',    href: '/historico',    icon: History },
-  { label: 'Pagamentos',   href: '/pagamentos',   icon: CreditCard },
-  { label: 'Relatórios',   href: '/relatorios',   icon: BarChart3 },
-]
+  { label: 'Dashboard',    href: '/dashboard',    icon: LayoutDashboard, perm: 'dashboard'    },
+  { label: 'Diaristas',    href: '/diaristas',    icon: Users,           perm: 'diaristas'    },
+  { label: 'Agendamentos', href: '/agendamentos', icon: CalendarDays,    perm: 'agendamentos' },
+  { label: 'Marcar Ponto', href: '/pontos',       icon: Clock,           perm: 'pontos'       },
+  { label: 'Histórico',    href: '/historico',    icon: History,         perm: 'historico'    },
+  { label: 'Pagamentos',   href: '/pagamentos',   icon: CreditCard,      perm: 'pagamentos'   },
+  { label: 'Relatórios',   href: '/relatorios',   icon: BarChart3,       perm: 'relatorios'   },
+] as const
 
 const bottomItems = [
-  { label: 'Empresa',       href: '/empresa',       icon: Building2 },
-  { label: 'Configurações', href: '/configuracoes', icon: Settings },
-]
+  { label: 'Empresa',       href: '/empresa',       icon: Building2, perm: 'empresa'        },
+  { label: 'Configurações', href: '/configuracoes', icon: Settings,  perm: 'configuracoes'  },
+] as const
 
 const planLabel: Record<string, string> = {
   basic: 'Basic', pro: 'Pro', enterprise: 'Enterprise',
@@ -58,11 +59,19 @@ function NavItem({
 }
 
 function SidebarContent({
-  companyName, plan, onClose,
+  companyName, plan, userRole, permissoes, onClose,
 }: {
-  companyName?: string | null; plan?: string | null; onClose?: () => void
+  companyName?: string | null
+  plan?: string | null
+  userRole?: Role | null
+  permissoes?: Permissoes | null
+  onClose?: () => void
 }) {
   const pathname = usePathname()
+  const isAdmin = userRole === 'admin'
+
+  const visibleNav    = navItems.filter(i => isAdmin || (permissoes?.[i.perm] ?? true))
+  const visibleBottom = bottomItems.filter(i => isAdmin || (permissoes?.[i.perm] ?? false))
 
   return (
     <div className="flex h-full flex-col">
@@ -91,7 +100,7 @@ function SidebarContent({
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">Menu</p>
         <ul className="space-y-0.5">
-          {navItems.map(item => (
+          {visibleNav.map(item => (
             <li key={item.href}>
               <NavItem
                 href={item.href}
@@ -104,22 +113,25 @@ function SidebarContent({
           ))}
         </ul>
 
-        <Separator className="my-4" />
-
-        <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">Sistema</p>
-        <ul className="space-y-0.5">
-          {bottomItems.map(item => (
-            <li key={item.href}>
-              <NavItem
-                href={item.href}
-                icon={item.icon}
-                label={item.label}
-                active={pathname === item.href}
-                onClick={onClose}
-              />
-            </li>
-          ))}
-        </ul>
+        {visibleBottom.length > 0 && (
+          <>
+            <Separator className="my-4" />
+            <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">Sistema</p>
+            <ul className="space-y-0.5">
+              {visibleBottom.map(item => (
+                <li key={item.href}>
+                  <NavItem
+                    href={item.href}
+                    icon={item.icon}
+                    label={item.label}
+                    active={pathname === item.href}
+                    onClick={onClose}
+                  />
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </nav>
 
       {/* Footer */}
@@ -146,9 +158,11 @@ function SidebarContent({
 interface AppSidebarProps {
   companyName?: string | null
   plan?: string | null
+  userRole?: Role | null
+  permissoes?: Permissoes | null
 }
 
-export function AppSidebar({ companyName, plan }: AppSidebarProps) {
+export function AppSidebar({ companyName, plan, userRole, permissoes }: AppSidebarProps) {
   const { isOpen, close } = useSidebar()
 
   return (
@@ -157,7 +171,7 @@ export function AppSidebar({ companyName, plan }: AppSidebarProps) {
       {isOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <aside className="w-64 bg-sidebar border-r border-border shadow-2xl overflow-hidden">
-            <SidebarContent companyName={companyName} plan={plan} onClose={close} />
+            <SidebarContent companyName={companyName} plan={plan} userRole={userRole} permissoes={permissoes} onClose={close} />
           </aside>
           <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={close} />
         </div>
@@ -165,7 +179,7 @@ export function AppSidebar({ companyName, plan }: AppSidebarProps) {
 
       {/* Desktop sidebar */}
       <aside className="hidden md:flex h-screen w-60 shrink-0 flex-col border-r border-border bg-sidebar">
-        <SidebarContent companyName={companyName} plan={plan} />
+        <SidebarContent companyName={companyName} plan={plan} userRole={userRole} permissoes={permissoes} />
       </aside>
     </>
   )

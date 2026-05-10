@@ -17,8 +17,9 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string; badge: string 
 }
 
 const TIPO_CONFIG = {
-  diaria: { label: 'Diária',   badge: 'bg-violet-100 text-violet-800' },
-  hora:   { label: 'Por Hora', badge: 'bg-sky-100 text-sky-700' },
+  diaria:   { label: 'Diária',   badge: 'bg-violet-100 text-violet-800' },
+  hora:     { label: 'Por Hora', badge: 'bg-sky-100 text-sky-700' },
+  empreita: { label: 'Empreita', badge: 'bg-amber-100 text-amber-800' },
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────

@@ -1,10 +1,12 @@
 export type Plano           = 'basic' | 'pro' | 'enterprise'
 export type Role            = 'admin' | 'diarista'
+export type Permissao       = 'dashboard' | 'diaristas' | 'agendamentos' | 'pontos' | 'historico' | 'pagamentos' | 'relatorios' | 'empresa' | 'configuracoes'
+export type Permissoes      = Record<Permissao, boolean>
 export type StatusAgendamento = 'agendado' | 'trabalhando' | 'concluido' | 'cancelado'
 export type StatusPagamento = 'pendente' | 'pago'
 export type StatusEmpresa   = 'pendente' | 'ativa' | 'inativa'
 export type TipoCobranca    = 'automatica' | 'manual'
-export type TipoPagamento   = 'diaria' | 'hora'
+export type TipoPagamento   = 'diaria' | 'hora' | 'empreita'
 export type TipoLog         = 'login' | 'criacao_diarista' | 'agendamento' | 'pagamento' | 'faturamento'
 
 export interface PlanoInfo {
@@ -13,6 +15,15 @@ export interface PlanoInfo {
   limite_diaristas: number
   preco_mensal: number
   ativo: boolean
+  criado_em: string
+}
+
+export type PlanoTier = 'basic' | 'pro' | 'enterprise'
+export type PlanoModulosMap = Record<PlanoTier, Permissoes>
+
+export interface PlanoModulos {
+  plano: PlanoTier
+  modulos: Permissoes
   criado_em: string
 }
 
@@ -38,6 +49,7 @@ export interface Usuario {
   empresa_id: string
   email: string
   role: Role
+  permissoes?: Permissoes
   criado_em: string
   empresas?: Empresa
 }

@@ -1,7 +1,52 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import type { PlanoInfo } from '@/types/database'
+import type { Permissoes, PlanoInfo, PlanoModulosMap, PlanoTier } from '@/types/database'
+
+const DEFAULT_MODULOS_MAP: PlanoModulosMap = {
+  basic: {
+    dashboard: true, diaristas: false, agendamentos: true,
+    pontos: true, historico: true, pagamentos: false,
+    relatorios: false, empresa: false, configuracoes: false,
+  },
+  pro: {
+    dashboard: true, diaristas: true, agendamentos: true,
+    pontos: true, historico: true, pagamentos: true,
+    relatorios: true, empresa: false, configuracoes: false,
+  },
+  enterprise: {
+    dashboard: true, diaristas: true, agendamentos: true,
+    pontos: true, historico: true, pagamentos: true,
+    relatorios: true, empresa: true, configuracoes: true,
+  },
+}
+
+export async function getPlanoModulos(): Promise<{ modulos: PlanoModulosMap; error: string | null }> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('plano_modulos')
+    .select('plano, modulos')
+
+  if (error) return { modulos: DEFAULT_MODULOS_MAP, error: error.message }
+
+  const map: PlanoModulosMap = { ...DEFAULT_MODULOS_MAP }
+  for (const row of data ?? []) {
+    if (row.plano in map) map[row.plano as PlanoTier] = row.modulos as Permissoes
+  }
+  return { modulos: map, error: null }
+}
+
+export async function saveModulosAction(
+  plano: PlanoTier,
+  modulos: Permissoes,
+): Promise<{ error: string | null }> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('plano_modulos')
+    .upsert({ plano, modulos }, { onConflict: 'plano' })
+  if (error) return { error: error.message }
+  return { error: null }
+}
 
 export type PlanoInput = {
   nome: string

@@ -1,9 +1,12 @@
 import { Suspense } from 'react'
-import { getPlanos } from './actions'
+import { getPlanos, getPlanoModulos } from './actions'
 import { PlanosClient, PlanosSkeleton } from './planos-client'
 
 async function PlanosData() {
-  const { planos, error } = await getPlanos()
+  const [{ planos, error }, { modulos }] = await Promise.all([
+    getPlanos(),
+    getPlanoModulos(),
+  ])
 
   if (error) {
     return (
@@ -14,7 +17,7 @@ async function PlanosData() {
     )
   }
 
-  return <PlanosClient initialPlanos={planos} />
+  return <PlanosClient initialPlanos={planos} initialModulos={modulos} />
 }
 
 export default function PlanosPage() {
